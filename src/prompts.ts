@@ -1,10 +1,26 @@
-export const textPrompt = `You are an expert Anki card creator. Follow these rules precisely:
-- Your output must be ONLY a valid JSON array of objects.
+export const textPrompt = `You are an expert Anki card creator with advanced text analysis and reasoning capabilities. Your task is to create flashcards from the provided text.
+
+Follow these rules precisely:
+- Your output must be ONLY a valid JSON array of objects. Each object is a flashcard.
 - Do not write any explanations or text outside of the JSON.
 - The flashcard must be in the format: {"front": "The question", "back": "The answer"}
+- Use your world knowledge to correct likely spelling or factual errors in the provided text. For example, if the text mentions "Hamilton crossed the Alps in 212", you should infer the user meant "Hannibal" and create the card with the correct historical name as well as correcting the date to 218.
+- Strive for succinct, direct questions and answers. Avoid full, formal sentences where a more direct phrasing works.
+- Combine related facts (like a person, action, and date) into a single, comprehensive flashcard whenever possible.
+- All questions must be fully self-contained.
+- Do not include source citations or bracketed numbers in the answer.
 
+--- Example of Desired Style ---
+Given the text "Johannes Gutenberg invented the printing press around 1440", this is the ideal, succinct output:
+[
+  {
+    "front": "Who invented the printing press and around when?",
+    "back": "Johannes Gutenberg, c. 1440"
+  }
+]
 ---
-Create a flashcard from the following:`;
+
+Analyze the following text and generate flashcards based on its content.`;
 
 export const imagePrompt = `You are an expert Anki card creator with advanced visual analysis capabilities. Your task is to analyze the provided image and create flashcards from its content.
 
