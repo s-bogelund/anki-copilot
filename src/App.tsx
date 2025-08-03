@@ -11,7 +11,7 @@ function App() {
 
 	const testPrompt = async () => {
 		const test: GenerateContentResponse | null = await generateCardContent(
-			'text',
+			'image',
 			prompt
 		);
 

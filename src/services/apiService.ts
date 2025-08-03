@@ -1,9 +1,10 @@
 import {
+	createPartFromUri,
+	createUserContent,
 	GoogleGenAI as Gemini,
 	type GenerateContentResponse,
 } from '@google/genai';
 import { audioPrompt, imagePrompt, textPrompt } from '@/prompts';
-import type { GeminiResponse } from '@/types';
 
 type AnkiDataType = 'text' | 'image' | 'audio';
 type InputData = string | File | Blob;
@@ -17,12 +18,9 @@ export const generateCardContent = async (
 	dataType: AnkiDataType,
 	data: InputData
 ): Promise<GenerateContentResponse | null> => {
-	const prompt = getPromptForDataType(dataType);
-
-	const payload = await prepareLLMPayload(dataType, data, prompt);
+	const payload = await prepareLLMPayload(dataType, data);
 
 	if (!payload) {
-		console.error('Failed to prepare LLM payload');
 		throw new Error('Failed to prepare LLM payload');
 	}
 	console.log('LLM payload prepared successfully:', payload);
@@ -43,30 +41,107 @@ function getPromptForDataType(dataType: AnkiDataType): string {
 	}
 }
 
-async function prepareLLMPayload(
-	dataType: AnkiDataType,
-	data: InputData,
+async function prepareLLMPayload(dataType: AnkiDataType, data: InputData) {
+	const ai = new Gemini({ apiKey: geminiApiKey });
+	const prompt = getPromptForDataType(dataType);
+	const file = await fetch('/dummy_image_1.png'); // Placeholder for actual audio file
+	const blob = await file.blob();
+	let response = {};
+
+	switch (dataType) {
+		case 'text':
+			response = await generateContentFromText(ai, data as string, prompt);
+			break;
+		case 'audio':
+			response = await generateContentFromAudio(ai, blob, prompt);
+			break;
+		case 'image':
+			response = await generateContentFromImage(ai, blob, prompt);
+			break;
+		default:
+			console.error(`Unsupported data type: $dataType`);
+			return null;
+	}
+
+	return response as GenerateContentResponse;
+}
+
+async function generateContentFromText(
+	ai: Gemini,
+	data: string,
 	prompt: string
 ) {
-	const ai = new Gemini({ apiKey: geminiApiKey });
-	let response = {};
-	if (dataType === 'text') {
-		const config = {
+	const response = await ai.models.generateContent({
+		model: 'gemini-2.5-pro',
+		contents: `${prompt} ${data}`,
+		config: {
 			thinkingConfig: {
-				thinkingBudget: 0,
+				thinkingBudget: -1,
 			},
-		};
+			responseMimeType: 'application/json',
+		},
+	});
+	return response;
+}
 
-		response = await ai.models.generateContent({
-			model: 'gemini-2.5-flash-lite',
-			contents: `${prompt} ${data}`,
-			config: {
-				thinkingConfig: {
-					thinkingBudget: 0,
-				},
-				responseMimeType: 'application/json',
-			},
-		});
-		return response;
+async function generateContentFromAudio(
+	ai: Gemini,
+	data: File | Blob | string,
+	prompt: string
+) {
+	const audioFile = await ai.files.upload({
+		file: data,
+		config: { mimeType: 'audio/mp3' },
+	});
+
+	if (!audioFile || !audioFile.uri || !audioFile.mimeType) {
+		console.error('Failed to upload audio file', audioFile);
+		throw new Error('Failed to upload audio file');
 	}
+
+	const response = await ai.models.generateContent({
+		model: 'gemini-2.5-pro',
+		contents: createUserContent([
+			createPartFromUri(audioFile.uri, audioFile.mimeType),
+			prompt,
+		]),
+		config: {
+			thinkingConfig: {
+				thinkingBudget: -1,
+			},
+			responseMimeType: 'application/json',
+		},
+	});
+	return response;
+}
+
+async function generateContentFromImage(
+	ai: Gemini,
+	data: File | Blob | string,
+	prompt: string
+) {
+	const imageFile = await ai.files.upload({
+		file: data,
+		config: { mimeType: 'image/png' },
+	});
+
+	if (!imageFile || !imageFile.uri || !imageFile.mimeType) {
+		console.error('Failed to upload image file', imageFile);
+		throw new Error('Failed to upload image file');
+	}
+
+	const response = await ai.models.generateContent({
+		model: 'gemini-2.5-pro',
+		contents: createUserContent([
+			createPartFromUri(imageFile.uri, imageFile.mimeType),
+			prompt,
+		]),
+		config: {
+			thinkingConfig: {
+				thinkingBudget: -1,
+			},
+			responseMimeType: 'application/json',
+		},
+	});
+	return response;
 }
